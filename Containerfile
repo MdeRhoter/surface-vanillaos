@@ -13,5 +13,4 @@ RUN lpkg --unlock && \
     rm -rf /var/lib/apt/lists/* && \
     lpkg --lock
 
-# Set the default kernel to Surface kernel
-RUN update-grub
+# Note: ABRoot will handle boot configuration automatically
