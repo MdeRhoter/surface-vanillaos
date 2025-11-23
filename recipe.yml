@@ -1,0 +1,25 @@
+name: vanilla-surface
+id: vanilla-surface
+stages:
+- id: build
+  base: ghcr.io/vanilla-os/desktop:main
+  singlelayer: false
+  labels:
+    maintainer: Vanilla OS Contributors
+    org.opencontainers.image.name: vanilla-surface
+    org.opencontainers.image.description: Vanilla OS with Surface drivers
+  args:
+    DEBIAN_FRONTEND: noninteractive
+  runs:
+    commands:
+      - echo 'APT::Install-Recommends "1";' > /etc/apt/apt.conf.d/90-norecommends
+      - lpkg --unlock
+      - apt-get update
+      - apt-get install -y wget gnupg
+      - wget -qO - https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc | gpg --dearmor > /etc/apt/keyrings/linux-surface.gpg
+      - echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/linux-surface.gpg] https://pkg.surfacelinux.com/debian release main" > /etc/apt/sources.list.d/linux-surface.list
+      - apt-get update
+      - apt-get install -y linux-image-surface linux-headers-surface iptsd libwacom-surface
+      - apt-get clean
+      - rm -rf /var/lib/apt/lists/*
+      - lpkg --lock
