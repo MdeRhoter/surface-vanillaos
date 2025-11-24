@@ -3,10 +3,18 @@ name: Build Surface-enabled Vanilla OS
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'Containerfile'
+      - 'recipe.yml'
+      - 'includes.container/**'
+      - 'modules.d/**'
   pull_request:
     branches: [ "main" ]
-  schedule:
-    - cron: '20 2 * * 0'  # Weekly build to get base image updates
+    paths:
+      - 'Containerfile'
+      - 'recipe.yml'
+      - 'includes.container/**'
+      - 'modules.d/**'
 
 env:
   REGISTRY: ghcr.io
