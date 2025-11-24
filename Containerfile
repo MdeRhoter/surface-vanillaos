@@ -17,9 +17,15 @@ RUN lpkg --unlock && \
         libwacom-surface \
         firmware-linux \
         firmware-linux-nonfree \
-        firmware-misc-nonfree && \
+        firmware-misc-nonfree \
+        network-manager \
+        wireless-tools \
+        rfkill \
+        wpasupplicant && \
     # Enable touchscreen service
     systemctl enable iptsd@.service && \
+    # Enable NetworkManager for wireless support
+    systemctl enable NetworkManager.service && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     lpkg --lock
