@@ -18,6 +18,7 @@ RUN lpkg --unlock && \
         firmware-linux \
         firmware-linux-nonfree \
         firmware-misc-nonfree \
+        firmware-libertas \
         network-manager \
         wireless-tools \
         rfkill \

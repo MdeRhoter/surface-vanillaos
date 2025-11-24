@@ -19,7 +19,7 @@ stages:
       - wget -qO - https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc | gpg --dearmor > /etc/apt/keyrings/linux-surface.gpg
       - echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/linux-surface.gpg] https://pkg.surfacelinux.com/debian release main" > /etc/apt/sources.list.d/linux-surface.list
       - apt-get update
-      - apt-get install -y linux-image-surface linux-headers-surface iptsd libwacom-surface firmware-linux firmware-linux-nonfree firmware-misc-nonfree network-manager wireless-tools rfkill wpasupplicant
+      - apt-get install -y linux-image-surface linux-headers-surface iptsd libwacom-surface firmware-linux firmware-linux-nonfree firmware-misc-nonfree firmware-libertas network-manager wireless-tools rfkill wpasupplicant
       - systemctl enable NetworkManager.service
       - apt-get clean
       - rm -rf /var/lib/apt/lists/*
