@@ -10,6 +10,12 @@
     {
       "matchUpdateTypes": ["major"],
       "automerge": false
+    },
+    {
+      "matchPackageNames": ["ghcr.io/vanilla-os/desktop"],
+      "pinDigests": true,
+      "automerge": true,
+      "matchUpdateTypes": ["digest"]
     }
   ],
   "regexManagers": [
@@ -22,6 +28,7 @@
     }
   ],
   "docker": {
-    "enabled": true
+    "enabled": true,
+    "pinDigests": true
   }
 }
