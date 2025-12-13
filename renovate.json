@@ -14,17 +14,16 @@
     {
       "matchPackageNames": ["ghcr.io/vanilla-os/desktop"],
       "pinDigests": true,
-      "automerge": true,
-      "matchUpdateTypes": ["digest"]
+      "automerge": true
     }
   ],
   "regexManagers": [
     {
-      "fileMatch": ["^Containerfile$", "^recipe\\.yml$"],
-      "matchStrings": ["FROM ghcr\\.io/vanilla-os/desktop:(?<currentValue>.*?)\\n"],
-      "datasourceTemplate": "docker",
-      "registryUrlTemplate": "https://ghcr.io",
-      "depNameTemplate": "ghcr.io/vanilla-os/desktop"
+      "fileMatch": ["^recipe\.yml$"],
+      "matchStrings": [
+        "base:\s*(?<depName>ghcr\.io/vanilla-os/desktop):(?<currentValue>[^@\s]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
+      ],
+      "datasourceTemplate": "docker"
     }
   ],
   "docker": {

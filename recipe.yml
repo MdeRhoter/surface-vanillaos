@@ -2,6 +2,7 @@ name: vanilla-surface
 id: vanilla-surface
 stages:
 - id: build
+  # Renovate will automatically add digest pinning on first run
   base: ghcr.io/vanilla-os/desktop:main
   singlelayer: false
   labels:

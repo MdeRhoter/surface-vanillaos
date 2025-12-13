@@ -1,3 +1,4 @@
+# Renovate will automatically add digest pinning on first run
 FROM ghcr.io/vanilla-os/desktop:main
 
 # Add Surface kernel and drivers for full hardware support
