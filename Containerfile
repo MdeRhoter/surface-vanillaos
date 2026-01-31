@@ -1,5 +1,5 @@
 # Renovate will automatically add digest pinning on first run
-FROM ghcr.io/vanilla-os/desktop:1.3.4@sha256:42407ab9f5f3e1423e827da3ce6efe036b226c511e8031c0686e343bdaa9b609
+FROM ghcr.io/vanilla-os/desktop:v1.4.0@sha256:744f0234c88d8d62dd956e7a36acf350117bca453b01cb02e8a903c1527b7c7e
 
 # Add Surface kernel and drivers for full hardware support
 # NOTE: Surface kernel is unsigned - requires Secure Boot to be disabled
