@@ -251,14 +251,8 @@ if command_exists apx; then
             # Use apx surface to update the subsystem
             log "Step 1: Updating package lists"
             if run_cmd "apx surface update" "Update package list for APX subsystem: $subsystem"; then
-                if [ "$SKIP_CONFIRMATION" = true ]; then
-                    log "Step 2: Upgrading packages (non-interactive)"
-                    upgrade_cmd="echo 'Y' | apx surface upgrade"
-                else
-                    log "Step 2: Upgrading packages (interactive - you may need to confirm)"
-                    upgrade_cmd="apx surface upgrade"
-                fi
-                if run_cmd "$upgrade_cmd" "Upgrade packages in APX subsystem: $subsystem"; then
+                log "Step 2: Upgrading packages"
+                if run_cmd "apx surface upgrade" "Upgrade packages in APX subsystem: $subsystem"; then
                     success "Successfully updated APX subsystem: $subsystem"
                     APX_UPDATE_SUCCESS=true
                 else
