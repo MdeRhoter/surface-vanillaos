@@ -23,7 +23,8 @@
       "matchStrings": [
         "base:\s*(?<depName>ghcr\.io/vanilla-os/desktop):(?<currentValue>[^@\s]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
       ],
-      "datasourceTemplate": "docker"
+      "datasourceTemplate": "docker",
+      "extractVersionTemplate": "^v?(?<version>.+)$"
     }
   ],
   "docker": {
