@@ -93,9 +93,11 @@ check_available_systems() {
         systems+=("Flatpak applications ($flatpak_count apps)")
     fi
     
-    # Check VSO/host system
-    if command_exists vso || [ -f "/usr/bin/vso" ] || [ -f "/bin/vso" ] || [ -f "/usr/local/bin/vso" ]; then
-        systems+=("Host Vanilla OS system (via VSO)")
+    # Check host system upgrade path (prefer host-shell -> abroot because
+    # `vso update` under a zsh host login shell hits the "no such option: pty"
+    # bug in vso 3.x)
+    if command_exists host-shell; then
+        systems+=("Host Vanilla OS system (via abroot through host-shell)")
     elif command_exists abroot; then
         systems+=("Host system (via abroot)")
     elif [ -n "$HOSTNAME" ] && [ "$HOSTNAME" = "vanilla" ]; then
@@ -184,43 +186,70 @@ else
     warning "Flatpak not found in current environment"
 fi
 
-# 3. Try to update host Vanilla OS system (VSO)
+# 3. Try to update host Vanilla OS system
 log "Attempting to update host Vanilla OS system"
 
-# Check if we can access VSO from host
-if command_exists vso; then
-    log "VSO found - updating host system"
-    run_cmd "vso update" "Update host Vanilla OS system"
-elif command -v /usr/bin/vso >/dev/null 2>&1; then
-    log "VSO found in /usr/bin - updating host system"
-    run_cmd "/usr/bin/vso update" "Update host Vanilla OS system"
-else
-    # Try to run VSO from the host system through various methods
-    if [ -n "$HOSTNAME" ] && [ "$HOSTNAME" = "vanilla" ]; then
-        log "Attempting to run VSO update on host system"
-        
-        # Try different approaches to run on host
-        for vso_path in "/usr/bin/vso" "/bin/vso" "/usr/local/bin/vso"; do
-            if [ -f "$vso_path" ]; then
-                run_cmd "$vso_path update" "Update host Vanilla OS system via $vso_path" && break
-            fi
-        done
-        
-        # If VSO not found, try other Vanilla OS tools
-        for tool in abroot; do
-            if command_exists "$tool"; then
-                case "$tool" in
-                    abroot)
-                        run_cmd "sudo abroot upgrade" "Update host system via abroot"
-                        ;;
-                esac
-                break
-            fi
-        done
-    else
-        warning "VSO not accessible from current environment. Host system update skipped."
-        warning "You may need to run 'vso update' from the host system directly."
+# Note: `vso update` in vso 3.x spawns a shell command on the host that uses
+# bash-only option toggles (e.g. `set -o pty`). When the host user's login
+# shell is zsh, this fails with "zsh: no such option: pty". We can't work
+# around this from inside pico because host-spawn runs on the host using the
+# host login shell, regardless of any env we set here.
+#
+# Instead, call `abroot upgrade` on the host. Notes:
+#   * `abroot` in pico is a symlink dispatched to the host via host-shell.
+#   * `abroot` itself requires root ("You must be root to run this command")
+#     and does not always self-escalate, so we run it through `pkexec` to
+#     get a polkit prompt. `sudo` is not installed in pico and is not needed.
+#   * `abroot` is inconsistent about exit codes: it may exit 0 when printing
+#     an `ERROR` line, and it may exit non-zero for the benign "No update
+#     available" case. We inspect the output to decide.
+upgrade_host() {
+    local cmd="$1"
+    local description="$2"
+    local output
+    local status
+
+    log "Running: $description"
+    output=$(eval "$cmd" 2>&1)
+    status=$?
+    printf '%s\n' "$output"
+
+    # "No update available" is a success, regardless of exit status.
+    if printf '%s\n' "$output" | grep -qE 'No update available\.?'; then
+        success "$description (no update available)"
+        return 0
     fi
+
+    # An explicit ERROR line means failure even if abroot exited 0.
+    if printf '%s\n' "$output" | grep -qE '^\s*ERROR\b'; then
+        error "Failed to: $description"
+        return 1
+    fi
+
+    if [ "$status" -ne 0 ]; then
+        error "Failed to: $description"
+        return 1
+    fi
+
+    success "$description completed"
+}
+
+if command_exists pkexec && command_exists abroot; then
+    log "Upgrading host system via pkexec abroot"
+    upgrade_host "pkexec abroot upgrade" "Update host Vanilla OS system (pkexec abroot)" \
+        || warning "abroot upgrade failed - you may need to run it from a host terminal"
+elif command_exists host-shell; then
+    log "Falling back to host-shell -> pkexec abroot upgrade"
+    upgrade_host "host-shell pkexec abroot upgrade" "Update host Vanilla OS system (pkexec abroot via host-shell)" \
+        || warning "abroot upgrade failed - you may need to run it from a host terminal"
+elif command_exists abroot; then
+    # No pkexec/host-shell available; try abroot directly and hope it escalates
+    log "pkexec not available - attempting plain abroot upgrade"
+    upgrade_host "abroot upgrade" "Update host Vanilla OS system (abroot)" \
+        || warning "abroot upgrade failed - run 'pkexec abroot upgrade' from the host directly"
+else
+    warning "No host-upgrade tool available (abroot/host-shell). Host system update skipped."
+    warning "Run 'pkexec abroot upgrade' from the host system directly."
 fi
 
 echo ""
@@ -249,14 +278,30 @@ if command_exists apx; then
             log "=== Updating APX subsystem: $subsystem ==="
             
             # Use apx surface to update the subsystem
+            #
+            # Note: we run `full-upgrade` instead of `upgrade`. Plain
+            # `apt upgrade` (which is what `apx <subsystem> upgrade` maps to)
+            # is conservative and refuses to upgrade a package when its new
+            # version adds new Recommends/Depends, even if resolving them
+            # would not actually install anything. `full-upgrade`
+            # (a.k.a. `dist-upgrade`) uses the stronger solver and upgrades
+            # those kept-back packages (e.g. VS Code adding `bubblewrap`,
+            # `socat` to its Recommends).
+            #
+            # `apx <subsystem>` only accepts a fixed set of wrapper
+            # subcommands (install/upgrade/etc.), so to invoke apt-get with
+            # `full-upgrade` we go through `apx <subsystem> run ...` which
+            # executes a raw command inside the subsystem.
             log "Step 1: Updating package lists"
             if run_cmd "apx surface update" "Update package list for APX subsystem: $subsystem"; then
-                log "Step 2: Upgrading packages"
-                if run_cmd "apx surface upgrade" "Upgrade packages in APX subsystem: $subsystem"; then
+                log "Step 2: Upgrading packages (full-upgrade)"
+                # `--` stops apx from parsing the subcommand's flags
+                # (otherwise `apx surface run` complains about `-y`).
+                if run_cmd "apx surface run -- sudo apt-get -y full-upgrade" "Full-upgrade packages in APX subsystem: $subsystem"; then
                     success "Successfully updated APX subsystem: $subsystem"
                     APX_UPDATE_SUCCESS=true
                 else
-                    warning "Failed to upgrade packages in APX subsystem: $subsystem"
+                    warning "Failed to full-upgrade packages in APX subsystem: $subsystem"
                     APX_UPDATE_SUCCESS=false
                 fi
             else
@@ -314,8 +359,8 @@ if command_exists flatpak; then
     echo "✓ Flatpak applications updated"
 fi
 
-if command_exists vso || [ -f "/usr/bin/vso" ]; then
-    echo "✓ Host Vanilla OS system update attempted"
+if command_exists host-shell || command_exists abroot; then
+    echo "✓ Host Vanilla OS system update attempted (via abroot)"
 else
     echo "⚠ Host Vanilla OS system update may need manual intervention"
 fi
@@ -331,6 +376,7 @@ fi
 echo ""
 success "System update completed!"
 echo ""
-echo "Note: If you're running this from within a subsystem,"
-echo "you may want to run 'vso update' directly from the host"
-echo "system to ensure the host OS is fully updated."
+echo "Note: If you're running this from within the vso-pico subsystem,"
+echo "the host OS upgrade is performed by 'abroot upgrade' (which is"
+echo "dispatched to the host and self-escalates via pkexec)."
+echo "Run it directly from the host if you need to intervene manually."
